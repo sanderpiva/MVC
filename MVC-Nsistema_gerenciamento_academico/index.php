@@ -1,4 +1,12 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+?>
+
+
+
+<?php
 // index.php
 
 // Inicia a sessão para todas as requisições, fundamental para controle de acesso
@@ -8,8 +16,8 @@ if (session_status() == PHP_SESSION_NONE) {
 
 // Inclui os arquivos dos controladores para que suas classes estejam disponíveis.
 // ESTES SÃO OS NOMES DOS ARQUIVOS REAIS!
-require_once __DIR__ . '/controllers/auth-controller.php';
-require_once __DIR__ . '/controllers/dashboard-controller.php';
+require_once __DIR__ . '/controllers/Auth_controller.php';
+require_once __DIR__ . '/controllers/Dashboard_controller.php';
 // Adicione aqui outros controladores conforme o projeto cresce, por exemplo:
 // require_once __DIR__ . '/controllers/turma-controller.php';
 // require_once __DIR__ . '/controllers/aluno-controller.php';
@@ -100,17 +108,17 @@ if ($path === 'index.php') {
 // O 'NomeDaClasseDoController' deve ser o nome REAL da classe dentro do arquivo PHP
 // (ex: AuthController, mesmo que o arquivo seja auth-controller.php)
 $routes = [
-    ''                              => ['AuthController',    'showLoginForm'], // Rota para a raiz (página inicial, formulário de login)
-    'login'                         => ['AuthController',    'showLoginForm', 'login'], // Rota para o login
-    'logout'                        => ['AuthController',    'logout'],
-    'cadastro-professor'            => ['AuthController',    'showProfessorRegisterForm', 'registerProfessor'],
-    'cadastro-aluno'                => ['AuthController',    'showAlunoRegisterForm',     'registerAluno'],
+    ''                              => ['Auth_controller',    'showLoginForm'], // Rota para a raiz (página inicial, formulário de login)
+    'login'                         => ['Auth_controller',    'showLoginForm', 'login'], // Rota para o login
+    'logout'                        => ['Auth_controller',    'logout'],
+    'cadastro-professor'            => ['Auth_controller',    'showProfessorRegisterForm', 'registerProfessor'],
+    'cadastro-aluno'                => ['Auth_controller',    'showAlunoRegisterForm',     'registerAluno'],
 
     // Rotas protegidas (exigem login)
-    'professor-dashboard'           => ['DashboardController', 'showProfessorDashboard'],
-    'aluno-selecao-atividade'       => ['DashboardController', 'showAlunoSelection',      'handleAlunoActivitySelection'],
-    'aluno-dashboard-dinamica'      => ['DashboardController', 'showAlunoDynamicDashboard'],
-    'aluno-dashboard-algebrando'    => ['DashboardController', 'showAlunoAlgebrandoDashboard'],
+    'Professor_dashboard'           => ['Dashboard_controller', 'showProfessorDashboard'],
+    'Aluno_selecao_atividade'       => ['Dashboard_controller', 'showAlunoSelection',      'handleAlunoActivitySelection'],
+    'Aluno_dashboard_dinamica'      => ['Dashboard_controller', 'showAlunoDynamicDashboard'],
+    'Aluno_dashboard_algebrando'    => ['Dashboard_controller', 'showAlunoAlgebrandoDashboard'],
 
     // --- Exemplos para CRUDs futuros ---
     // Se você tiver um arquivo `controllers/turma-controller.php` com uma classe `TurmaController`:
