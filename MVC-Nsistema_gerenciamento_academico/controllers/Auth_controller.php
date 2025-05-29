@@ -3,13 +3,8 @@ error_reporting(E_ALL);
 ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 
-?>
+// controllers/Auth_controller.php
 
-
-<?php
-// controllers/AuthController.php
-
-// Inclui o modelo que contém a lógica de autenticação e validação
 require_once __DIR__ . '/../models/Auth_model.php';
 
 class Auth_controller {
@@ -23,55 +18,46 @@ class Auth_controller {
      * Exibe o formulário de login (página inicial).
      */
     public function showLoginForm() {
-        // Apenas carrega a view. Nenhuma lógica de negócio aqui.
+        // Agora carrega a view de login
         require_once __DIR__ . '/../views/auth/Login.php';
     }
 
     /**
      * Processa a requisição de login.
-     * Recebe dados POST, chama o modelo para autenticar e redireciona.
      */
     public function login() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $login = $_POST['login'] ?? '';
             $senhaDigitada = $_POST['senha'] ?? '';
 
-            // Validação simples dos campos
             if (empty($login) || empty($senhaDigitada)) {
-                $this->displayErrorPage("Por favor, preencha todos os campos de login e senha.", '/');
+                // Usa a função global displayErrorPage do index.php
+                displayErrorPage("Por favor, preencha todos os campos de login e senha.", '/');
             }
 
-            // Chama o modelo para autenticar o usuário
             $user = $this->authModel->authenticate($login, $senhaDigitada);
 
             if ($user) {
-                // Inicia a sessão (já pode estar iniciada pelo index.php, mas é bom garantir)
                 if (session_status() == PHP_SESSION_NONE) {
                     session_start();
                 }
-                // Armazena os dados do usuário na sessão
                 $_SESSION['logado'] = true;
                 $_SESSION['tipo_usuario'] = $user['type'];
                 $_SESSION['id_usuario'] = $user['data']['id_' . $user['type']];
                 $_SESSION['nome_usuario'] = $user['data']['nome'];
                 $_SESSION['email_usuario'] = $user['data']['email'];
 
-                // Redireciona com base no tipo de usuário
                 if ($user['type'] === 'aluno') {
                     $_SESSION['nome_turma'] = $user['data']['nomeTurma'] ?? 'N/A';
-                    header("Location: /aluno-selecao-atividade");
+                    redirect('/aluno-selecao-atividade'); // Redireciona via rota MVC
                 } else { // Professor
-                    header("Location: /professor-dashboard");
+                    redirect('/professor-dashboard'); // Redireciona via rota MVC
                 }
-                exit(); // Interrompe a execução após o redirecionamento
             } else {
-                // Se a autenticação falhar
-                $this->displayErrorPage("Login ou senha inválidos. Por favor, tente novamente.", '/');
+                displayErrorPage("Login ou senha inválidos. Por favor, tente novamente.", '/');
             }
         } else {
-            // Se for um GET request direto para /login (sem POST), redireciona para a home
-            header("Location: /");
-            exit();
+            redirect('/'); // Redireciona para a home (showLoginForm)
         }
     }
 
@@ -82,79 +68,76 @@ class Auth_controller {
         if (session_status() == PHP_SESSION_NONE) {
             session_start();
         }
-        session_unset();   // Remove todas as variáveis de sessão
-        session_destroy(); // Destrói a sessão
-        $this->displayErrorPage("Você foi desconectado com sucesso!", '/');
+        session_unset();
+        session_destroy();
+        displayErrorPage("Você foi desconectado com sucesso!", '/');
     }
 
     /**
      * Exibe o formulário de cadastro de professor.
      */
     public function showProfessorRegisterForm() {
-        // Variáveis necessárias para a view (para evitar erros se não houver dados POST)
         $isUpdating = false;
-        $professorData = []; // Para preencher o formulário vazio
-        $errors = "";        // Para exibir mensagens de erro
+        $professorData = [];
+        $errors = "";
         require_once __DIR__ . '/../views/auth/register_professor.php';
     }
 
     /**
      * Processa a requisição de cadastro de professor.
-     * Recebe dados POST, valida e chama o modelo para registrar.
      */
     public function registerProfessor() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Valida os dados usando o método do modelo
             $errors = $this->authModel->validateProfessorData($_POST);
 
             if (!empty($errors)) {
-                // Se houver erros, reexibe o formulário com as mensagens de erro e os dados preenchidos
                 $isUpdating = false;
-                $professorData = $_POST; // Preserva os dados inválidos para reexibir no formulário
+                $professorData = $_POST;
                 require_once __DIR__ . '/../views/auth/register_professor.php';
-                return; // Interrompe a execução
+                return;
             }
 
-            // Se a validação passar, tenta registrar o professor
             if ($this->authModel->registerProfessor($_POST)) {
-                // Sucesso no cadastro: exibe mensagem e botão para voltar
                 echo "<p>Professor cadastrado com sucesso!</p>";
                 echo '<button onclick="window.location.href=\'/\'">Voltar para o Menu</button>';
             } else {
-                // Erro no banco de dados durante o cadastro
-                $this->displayErrorPage("Erro ao cadastrar professor. Por favor, tente novamente.", '/');
+                displayErrorPage("Erro ao cadastrar professor. Por favor, tente novamente.", '/');
             }
         } else {
-            // Se for um GET request direto para /cadastro-professor (sem POST), redireciona para a página do formulário GET
-            header("Location: /cadastro-professor");
-            exit();
+            redirect('/cadastro-professor');
         }
     }
 
     /**
-     * Exibe o formulário de cadastro de aluno (a ser implementado).
+     * Exibe o formulário de cadastro de aluno.
      */
     public function showAlunoRegisterForm() {
-        // Você precisaria de um AlunoModel e de um formulário específico para alunos.
         require_once __DIR__ . '/../views/auth/register_aluno.php';
     }
 
     /**
-     * Processa a requisição de cadastro de aluno (a ser implementado).
+     * Processa a requisição de cadastro de aluno.
      */
     public function registerAluno() {
         // Lógica de cadastro de aluno aqui, similar ao registerProfessor, usando um AlunoModel
-        $this->displayErrorPage("Funcionalidade de cadastro de aluno ainda não implementada.", '/');
+        // Você precisará criar um AlunoModel e implementar a lógica de validação e registro
+        displayErrorPage("Funcionalidade de cadastro de aluno ainda não implementada.", '/');
     }
 
     /**
      * Método auxiliar para exibir uma página de erro genérica.
-     * @param string $message A mensagem de erro a ser exibida.
-     * @param string $homeUrl A URL para a página inicial (botão de retorno).
+     * Importante: Estas funções displayErrorPage e redirect são globais no index.php.
+     * Para usá-las dentro de um método de classe, você pode:
+     * 1. Passá-las como argumentos para o construtor do Controller (injeção de dependência).
+     * 2. Definir as funções como métodos estáticos ou em um helper e chamá-las com `self::` ou `Helper::`.
+     * 3. Chamá-las diretamente (como feito aqui, mas cuidado com o escopo global).
+     * Para este exemplo, vou mantê-las globais conforme seu `index.php` anterior,
+     * mas é uma boa prática considerá-las como helpers ou injetá-las.
      */
     private function displayErrorPage($message, $homeUrl) {
-        $errorMessage = $message; // A view 'error.php' espera esta variável
-        $homeUrl = $homeUrl;     // A view 'error.php' espera esta variável
+        global $errorMessage, $homeUrl; // Declara como global para serem acessíveis pela view
+        $errorMessage = $message;
+        $homeUrl = $homeUrl;
         require_once __DIR__ . '/../views/auth/error.php';
         exit();
     }

@@ -1,47 +1,41 @@
 <?php
+// Ativa a exibição de erros para depuração (remover em produção)
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
-?>
 
-
-
-<?php
-// index.php
-
-// Inicia a sessão para todas as requisições, fundamental para controle de acesso
+// Inicia a sessão para todas as requisições
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
+// Inclui o arquivo de conexão com o banco de dados (se necessário para todos os controllers)
+// Ou pode ser injetado nos modelos/controllers quando necessário.
+require_once __DIR__ . '/config/conexao.php'; // Verifique o caminho correto
+
 // Inclui os arquivos dos controladores para que suas classes estejam disponíveis.
-// ESTES SÃO OS NOMES DOS ARQUIVOS REAIS!
 require_once __DIR__ . '/controllers/Auth_controller.php';
 require_once __DIR__ . '/controllers/Dashboard_controller.php';
-// Adicione aqui outros controladores conforme o projeto cresce, por exemplo:
-// require_once __DIR__ . '/controllers/turma-controller.php';
-// require_once __DIR__ . '/controllers/aluno-controller.php';
-
+// Adicione aqui outros controladores conforme o projeto cresce
 
 // --- Função Auxiliar de Roteamento ---
-// Esta função encapsula a lógica de chamar o Controller e a ação.
 function dispatchRoute($controllerClassName, $actionMethod, $postActionMethod = null) {
-    // Apenas instanciamos o Controller, pois sabemos que a classe já foi carregada.
-    $controller = new $controllerClassName(); // Instancia o Controller usando o NOME DA CLASSE
+    global $conexao; // Garante que a conexão esteja disponível se o controller precisar dela
 
-    // Decide qual método chamar: se for POST e houver um método POST específico, usa-o.
-    // Caso contrário, usa o método GET/padrão.
+    // Instancia o Controller, passando a conexão se ele precisar
+    $controller = new $controllerClassName();
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && $postActionMethod && method_exists($controller, $postActionMethod)) {
         $controller->$postActionMethod();
     } elseif (method_exists($controller, $actionMethod)) {
         $controller->$actionMethod();
     } else {
-        // Se a ação não existir no Controller, trata como erro
         displayErrorPage("Ação '$actionMethod' ou '$postActionMethod' não encontrada na classe '$controllerClassName'.", '/');
     }
 }
 
-// --- Funções Auxiliares (mantidas no index.php conforme a restrição) ---
+// --- Funções Auxiliares Globais (para redirecionamento e erro) ---
+// Elas são mantidas aqui no index.php, ou você pode movê-las para um arquivo de "helpers"
 
 /**
  * Redireciona o navegador para uma nova URL.
@@ -58,10 +52,9 @@ function redirect($url) {
  * @param string $homeUrl A URL para o botão "Voltar para a Home".
  */
 function displayErrorPage($message, $homeUrl = '/') {
-    // As variáveis $errorMessage e $homeUrl serão acessíveis na view de erro
     $errorMessage = $message;
     $homeUrl = $homeUrl;
-    require __DIR__ . '/views/auth/error.php';
+    require __DIR__ . '/views/auth/error.php'; // Verifique o caminho da sua view de erro
     exit();
 }
 
@@ -79,55 +72,39 @@ function requireAuth($userType = null) {
     }
 }
 
-
 // --- Lógica de Roteamento ---
-// Pega a URI da requisição (ex: /login, /cadastro-professor)
 $requestUri = strtok($_SERVER['REQUEST_URI'], '?');
-
-// Calcula o caminho base da aplicação (ex: /php_if/MVC-Nsistema_gerenciamento_academico)
-// Isso é necessário porque a aplicação está em um subdiretório.
 $basePath = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME']));
-// Se a URL for http://localhost/php_if/MVC-Nsistema_gerenciamento_academico/index.php
-// $_SERVER['SCRIPT_NAME'] será /php_if/MVC-Nsistema_gerenciamento_academico/index.php
-// dirname() resultará em /php_if/MVC-Nsistema_gerenciamento_academico
-
-// Remove o basePath do requestUri para obter o caminho limpo da rota
 $path = substr($requestUri, strlen($basePath));
-// Remove barras iniciais/finais para padronizar o path
 $path = trim($path, '/');
 
-// Se o path resultante for 'index.php', transformamos em string vazia para a rota raiz
-if ($path === 'index.php') {
-    $path = '';
+if ($path === 'index.php' || $path === '') {
+    $path = ''; // Rota raiz
 }
 
-
 // Mapeamento de rotas:
-// Cada entrada no array define:
 // 'url_caminho' => [ 'NomeDaClasseDoController', 'metodoParaGET', 'metodoParaPOST' (opcional) ]
-// O 'NomeDaClasseDoController' deve ser o nome REAL da classe dentro do arquivo PHP
-// (ex: AuthController, mesmo que o arquivo seja auth-controller.php)
 $routes = [
-    ''                              => ['Auth_controller',    'showLoginForm'], // Rota para a raiz (página inicial, formulário de login)
-    'login'                         => ['Auth_controller',    'showLoginForm', 'login'], // Rota para o login
-    'logout'                        => ['Auth_controller',    'logout'],
-    'cadastro-professor'            => ['Auth_controller',    'showProfessorRegisterForm', 'registerProfessor'],
-    'cadastro-aluno'                => ['Auth_controller',    'showAlunoRegisterForm',     'registerAluno'],
+    ''                    => ['Auth_controller', 'showLoginForm'], // Rota para a raiz (página inicial, formulário de login)
+    'login'               => ['Auth_controller', 'showLoginForm', 'login'], // Processa o POST de login
+    'logout'              => ['Auth_controller', 'logout'],
+    'cadastro-professor'  => ['Auth_controller', 'showProfessorRegisterForm', 'registerProfessor'],
+    'cadastro-aluno'      => ['Auth_controller', 'showAlunoRegisterForm', 'registerAluno'],
 
-    // Rotas protegidas (exigem login)
-    'Professor_dashboard'           => ['Dashboard_controller', 'showProfessorDashboard'],
-    'Aluno_selecao_atividade'       => ['Dashboard_controller', 'showAlunoSelection',      'handleAlunoActivitySelection'],
-    'Aluno_dashboard_dinamica'      => ['Dashboard_controller', 'showAlunoDynamicDashboard'],
-    'Aluno_dashboard_algebrando'    => ['Dashboard_controller', 'showAlunoAlgebrandoDashboard'],
+    // Rotas protegidas (exigem login, e a verificação é feita dentro do controller)
+    'professor-dashboard' => ['Dashboard_controller', 'showProfessorDashboard'],
+    'aluno-selecao-atividade' => ['Dashboard_controller', 'showAlunoSelection', 'handleAlunoActivitySelection'],
+    'aluno-dashboard-dinamica' => ['Dashboard_controller', 'showAlunoDynamicDashboard'],
+    'aluno-dashboard-algebrando' => ['Dashboard_controller', 'showAlunoAlgebrandoDashboard'],
 
-    // --- Exemplos para CRUDs futuros ---
-    // Se você tiver um arquivo `controllers/turma-controller.php` com uma classe `TurmaController`:
-    // 'turma-cadastrar'             => ['TurmaController',    'showCreateForm', 'create'],
-    // 'turma-consultar'             => ['TurmaController',    'listAll'],
+    // Exemplo de rota para gerenciar professores (GET para exibir lista, POST para criar novo)
+    // 'professor-gerenciar' => ['Professor_controller', 'listProfessors', 'createProfessor'],
+    // 'professor-editar'    => ['Professor_controller', 'showEditForm', 'updateProfessor'],
+    // 'professor-excluir'   => ['Professor_controller', 'deleteProfessor'],
 ];
 
 // ----------------------------------------------------
-// Lógica para despachar a requisição para o Controller e método corretos
+// Despacho da requisição para o Controller e método corretos
 // ----------------------------------------------------
 if (array_key_exists($path, $routes)) {
     $routeInfo = $routes[$path];
@@ -141,3 +118,4 @@ if (array_key_exists($path, $routes)) {
     // Se a rota não for encontrada no mapeamento
     displayErrorPage("Página não encontrada.", '/');
 }
+?>
