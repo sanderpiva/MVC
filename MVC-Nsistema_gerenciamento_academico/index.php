@@ -1,121 +1,95 @@
 <?php
-// Ativa a exibição de erros para depuração (remover em produção)
+// Ativa a exibição de erros para depuração (REMOVER EM PRODUÇÃO)
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// Inicia a sessão para todas as requisições
+// Inicia a sessão para todas as requisições, se ainda não estiver iniciada
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
-// Inclui o arquivo de conexão com o banco de dados (se necessário para todos os controllers)
-// Ou pode ser injetado nos modelos/controllers quando necessário.
-require_once __DIR__ . '/config/conexao.php'; // Verifique o caminho correto
+// --- Inclusão de Arquivos Essenciais ---
+// Inclui o arquivo de conexão com o banco de dados
+require_once __DIR__ . '/config/conexao.php';
 
-// Inclui os arquivos dos controladores para que suas classes estejam disponíveis.
+// Inclui os arquivos dos controladores. Em aplicações maiores, um autoloader seria usado.
 require_once __DIR__ . '/controllers/Auth_controller.php';
 require_once __DIR__ . '/controllers/Dashboard_controller.php';
-// Adicione aqui outros controladores conforme o projeto cresce
+// Adicione aqui outros controladores conforme o projeto cresce (ex: Atividades_controller.php)
 
-// --- Função Auxiliar de Roteamento ---
-function dispatchRoute($controllerClassName, $actionMethod, $postActionMethod = null) {
-    global $conexao; // Garante que a conexão esteja disponível se o controller precisar dela
-
-    // Instancia o Controller, passando a conexão se ele precisar
-    $controller = new $controllerClassName();
-
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && $postActionMethod && method_exists($controller, $postActionMethod)) {
-        $controller->$postActionMethod();
-    } elseif (method_exists($controller, $actionMethod)) {
-        $controller->$actionMethod();
-    } else {
-        displayErrorPage("Ação '$actionMethod' ou '$postActionMethod' não encontrada na classe '$controllerClassName'.", '/');
-    }
-}
-
-// --- Funções Auxiliares Globais (para redirecionamento e erro) ---
-// Elas são mantidas aqui no index.php, ou você pode movê-las para um arquivo de "helpers"
+// --- Funções Auxiliares Globais ---
+// São funções que podem ser usadas em qualquer lugar do seu código (controladores, modelos, etc.)
 
 /**
  * Redireciona o navegador para uma nova URL.
- * @param string $url A URL para redirecionar.
+ * @param string $url A URL completa ou relativa para redirecionar.
  */
 function redirect($url) {
     header("Location: " . $url);
-    exit();
+    exit(); // É crucial parar a execução após um redirecionamento
 }
 
 /**
- * Exibe uma página de erro formatada.
+ * Exibe uma página de erro formatada com uma mensagem e um link para retornar.
  * @param string $message A mensagem de erro a ser exibida.
- * @param string $homeUrl A URL para o botão "Voltar para a Home".
+ * @param string $homeUrl A URL para o botão "Voltar para a Home" ou outra página.
  */
-function displayErrorPage($message, $homeUrl = '/') {
+function displayErrorPage($message, $homeUrl = 'index.php?controller=auth&action=showLoginForm') {
+    // Estas variáveis são disponibilizadas para a view de erro
+    global $errorMessage, $homeUrlForButton;
     $errorMessage = $message;
-    $homeUrl = $homeUrl;
-    require __DIR__ . '/views/auth/error.php'; // Verifique o caminho da sua view de erro
-    exit();
+    $homeUrlForButton = $homeUrl;
+    require __DIR__ . '/views/auth/error.php'; // Caminho para sua view de erro
+    exit(); // É crucial parar a execução após exibir a página de erro
 }
 
 /**
  * Verifica se o usuário está autenticado e, opcionalmente, se é de um tipo específico.
- * Se não, redireciona ou exibe página de erro.
+ * Se as condições não forem atendidas, redireciona ou exibe uma página de erro.
  * @param string|null $userType O tipo de usuário esperado ('professor' ou 'aluno'). Se null, apenas verifica se está logado.
  */
 function requireAuth($userType = null) {
+    // Se o usuário não estiver logado
     if (!isset($_SESSION['logado']) || $_SESSION['logado'] !== true) {
-        redirect('/'); // Não logado, volta para a home
+        redirect('index.php?controller=auth&action=showLoginForm'); // Redireciona para o login
     }
+    // Se o tipo de usuário for especificado e não corresponder ao logado
     if ($userType && $_SESSION['tipo_usuario'] !== $userType) {
-        displayErrorPage("Acesso negado. Você não tem permissão para acessar esta página.", '/');
+        displayErrorPage("Acesso negado. Você não tem permissão para acessar esta página.", 'index.php?controller=auth&action=showLoginForm');
     }
 }
 
-// --- Lógica de Roteamento ---
-$requestUri = strtok($_SERVER['REQUEST_URI'], '?');
-$basePath = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME']));
-$path = substr($requestUri, strlen($basePath));
-$path = trim($path, '/');
+// --- Lógica de Roteamento (interpreta os parâmetros $_GET) ---
 
-if ($path === 'index.php' || $path === '') {
-    $path = ''; // Rota raiz
+// Obtém o nome do controlador da URL, padrão para 'auth' se não especificado
+$controllerParam = $_GET['controller'] ?? 'auth';
+// Obtém o nome da ação (método) da URL, padrão para 'showLoginForm' se não especificado
+$actionParam = $_GET['action'] ?? 'showLoginForm';
+
+// Constrói o nome completo da classe do controlador (ex: 'auth' -> 'Auth_controller')
+$controllerClassName = ucfirst($controllerParam) . '_controller';
+
+// Verifica se o arquivo do controlador existe e se a classe foi definida
+// (O require_once já foi feito no início, então class_exists é suficiente aqui)
+if (!class_exists($controllerClassName)) {
+    displayErrorPage("Controller '$controllerClassName' não encontrado no sistema.", 'index.php?controller=auth&action=showLoginForm');
 }
 
-// Mapeamento de rotas:
-// 'url_caminho' => [ 'NomeDaClasseDoController', 'metodoParaGET', 'metodoParaPOST' (opcional) ]
-$routes = [
-    ''                    => ['Auth_controller', 'showLoginForm'], // Rota para a raiz (página inicial, formulário de login)
-    'login'               => ['Auth_controller', 'showLoginForm', 'login'], // Processa o POST de login
-    'logout'              => ['Auth_controller', 'logout'],
-    'cadastro-professor'  => ['Auth_controller', 'showProfessorRegisterForm', 'registerProfessor'],
-    'cadastro-aluno'      => ['Auth_controller', 'showAlunoRegisterForm', 'registerAluno'],
+// Instancia o controlador
+$controller = new $controllerClassName();
 
-    // Rotas protegidas (exigem login, e a verificação é feita dentro do controller)
-    'professor-dashboard' => ['Dashboard_controller', 'showProfessorDashboard'],
-    'aluno-selecao-atividade' => ['Dashboard_controller', 'showAlunoSelection', 'handleAlunoActivitySelection'],
-    'aluno-dashboard-dinamica' => ['Dashboard_controller', 'showAlunoDynamicDashboard'],
-    'aluno-dashboard-algebrando' => ['Dashboard_controller', 'showAlunoAlgebrandoDashboard'],
+// Determina o método a ser chamado no controlador
+$methodToCall = $actionParam;
 
-    // Exemplo de rota para gerenciar professores (GET para exibir lista, POST para criar novo)
-    // 'professor-gerenciar' => ['Professor_controller', 'listProfessors', 'createProfessor'],
-    // 'professor-editar'    => ['Professor_controller', 'showEditForm', 'updateProfessor'],
-    // 'professor-excluir'   => ['Professor_controller', 'deleteProfessor'],
-];
-
-// ----------------------------------------------------
-// Despacho da requisição para o Controller e método corretos
-// ----------------------------------------------------
-if (array_key_exists($path, $routes)) {
-    $routeInfo = $routes[$path];
-    $controllerClassName = $routeInfo[0];
-    $getOrDefaultAction = $routeInfo[1];
-    $postAction = $routeInfo[2] ?? null;
-
-    dispatchRoute($controllerClassName, $getOrDefaultAction, $postAction);
-
+// Verifica se o método existe no controlador instanciado
+if (method_exists($controller, $methodToCall)) {
+    // Chama o método no controlador.
+    // Quaisquer dados POST ou GET estarão disponíveis para o método via $_POST ou $_GET.
+    $controller->$methodToCall();
 } else {
-    // Se a rota não for encontrada no mapeamento
-    displayErrorPage("Página não encontrada.", '/');
+    // Se o método não existir, exibe uma página de erro
+    displayErrorPage("Ação '$actionParam' não encontrada no controller '$controllerClassName'.", 'index.php?controller=auth&action=showLoginForm');
 }
+
 ?>

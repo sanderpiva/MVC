@@ -1,20 +1,20 @@
 <?php
-// controllers/DashboardController.php
+// controllers/Dashboard_controller.php
 
-// Não precisa de um modelo por enquanto, pois só gerencia redirecionamentos de views
-// (mas poderia interagir com modelos se houvesse dados a exibir no dashboard).
+error_reporting(E_ALL);
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+
+// Não precisa de um modelo por enquanto neste exemplo, pois só gerencia redirecionamentos de views
+// Mas se houvesse dados a exibir no dashboard, o modelo seria incluído aqui.
+// require_once __DIR__ . '/../models/Dashboard_model.php';
 
 class Dashboard_controller {
 
     public function __construct() {
-        // Garante que a sessão esteja iniciada para verificar autenticação
-        if (session_status() == PHP_SESSION_NONE) {
-            session_start();
-        }
-        // Se o usuário não estiver logado, redireciona para a página inicial
-        if (!isset($_SESSION['logado']) || $_SESSION['logado'] !== true) {
-            $this->redirect('/');
-        }
+        // Garante que o usuário esteja logado antes de acessar qualquer método neste controller
+        // Usa a função global requireAuth() do index.php
+        requireAuth();
     }
 
     /**
@@ -22,9 +22,9 @@ class Dashboard_controller {
      */
     public function showProfessorDashboard() {
         // Garante que apenas professores logados acessem este dashboard
-        if ($_SESSION['tipo_usuario'] !== 'professor') {
-            $this->displayErrorPage("Acesso negado. Apenas professores podem acessar esta página.", '/');
-        }
+        // Usa a função global requireAuth() com o tipo de usuário esperado
+        requireAuth('professor');
+        // Carrega a view do dashboard do professor
         require_once __DIR__ . '/../views/professor/dashboard.php';
     }
 
@@ -33,39 +33,36 @@ class Dashboard_controller {
      */
     public function showAlunoSelection() {
         // Garante que apenas alunos logados acessem esta página
-        if ($_SESSION['tipo_usuario'] !== 'aluno') {
-            $this->displayErrorPage("Acesso negado. Apenas alunos podem acessar esta página.", '/');
-        }
+        requireAuth('aluno');
+        // Carrega a view de seleção de atividades do aluno
         require_once __DIR__ . '/../views/aluno/selection.php';
     }
 
     /**
-     * Lida com a seleção de tipo de atividade pelo aluno.
-     * Recebe dados POST e redireciona para o dashboard apropriado.
+     * Lida com a seleção de tipo de atividade pelo aluno (geralmente via POST).
+     * Redireciona para o dashboard apropriado (dinâmico ou estático).
      */
     public function handleAlunoActivitySelection() {
-        // Segurança: garanta que apenas alunos logados acessem
-        if ($_SESSION['tipo_usuario'] !== 'aluno') {
-            $this->displayErrorPage("Acesso negado.", '/');
-        }
+        // Segurança: garanta que apenas alunos logados acessem esta ação
+        requireAuth('aluno');
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $tipo_atividade = $_POST['tipo_atividade'] ?? '';
 
             if ($tipo_atividade === 'dinamica') {
-                header("Location: /aluno-dashboard-dinamica");
+                // Redireciona para o dashboard de atividades dinâmicas via roteador principal
+                redirect('index.php?controller=dashboard&action=showAlunoDynamicDashboard');
             } elseif ($tipo_atividade === 'estatica') {
-                header("Location: /aluno-dashboard-algebrando");
+                // Redireciona para o dashboard de atividades estáticas via roteador principal
+                redirect('index.php?controller=dashboard&action=showAlunoAlgebrandoDashboard');
             } else {
-                // Se a opção for inválida, reexibe a página de seleção com uma mensagem de erro
-                $errorMessage = "Selecione uma opção válida."; // Variável para a view
+                // Se a opção for inválida, exibe uma mensagem de erro e reexibe a página de seleção
+                $errorMessage = "Selecione uma opção válida."; // Variável para ser usada na view selection.php
                 require_once __DIR__ . '/../views/aluno/selection.php';
             }
-            exit(); // Interrompe a execução após redirecionamento ou renderização da view
         } else {
             // Se for um GET request direto para esta rota POST, redireciona para a página de seleção GET
-            header("Location: /aluno-selecao-atividade");
-            exit();
+            redirect('index.php?controller=dashboard&action=showAlunoSelection');
         }
     }
 
@@ -73,46 +70,26 @@ class Dashboard_controller {
      * Exibe o dashboard de atividades dinâmicas para alunos (a ser implementado).
      */
     public function showAlunoDynamicDashboard() {
-        if ($_SESSION['tipo_usuario'] !== 'aluno') {
-            $this->displayErrorPage("Acesso negado.", '/');
-        }
-        // Exemplo:
-        echo "<h1>Dashboard de Atividades Dinâmicas do Aluno</h1><p>Bem-vindo, " . htmlspecialchars($_SESSION['nome_usuario']) . "!</p><a href='/aluno-selecao-atividade'>Voltar</a>";
-        // require_once __DIR__ . '/../views/aluno/dashboard_dinamica.php';
+        requireAuth('aluno');
+        // Exemplo simples de conteúdo. Em um projeto real, você carregaria uma view PHP aqui.
+        echo "<h1>Dashboard de Atividades Dinâmicas do Aluno</h1>";
+        echo "<p>Bem-vindo, " . htmlspecialchars($_SESSION['nome_usuario']) . "!</p>";
+        echo '<p>Aqui você verá suas atividades dinâmicas.</p>';
+        echo '<a href="index.php?controller=dashboard&action=showAlunoSelection">Voltar para a seleção de atividades</a>';
+        // Ex: require_once __DIR__ . '/../views/aluno/dashboard_dinamica.php';
     }
 
     /**
      * Exibe o dashboard de atividades Algebrando para alunos (a ser implementado).
      */
     public function showAlunoAlgebrandoDashboard() {
-        if ($_SESSION['tipo_usuario'] !== 'aluno') {
-            $this->displayErrorPage("Acesso negado.", '/');
-        }
-        // Exemplo:
-        echo "<h1>Dashboard de Atividades Algebrando do Aluno</h1><p>Bem-vindo, " . htmlspecialchars($_SESSION['nome_usuario']) . "!</p><a href='/aluno-selecao-atividade'>Voltar</a>";
-        // require_once __DIR__ . '/../views/aluno/dashboard_algebrando.php';
-    }
-
-
-    /**
-     * Método auxiliar para redirecionamento.
-     * @param string $url A URL para redirecionar.
-     */
-    private function redirect($url) {
-        header("Location: " . $url);
-        exit();
-    }
-
-    /**
-     * Método auxiliar para exibir uma página de erro genérica.
-     * @param string $message A mensagem de erro a ser exibida.
-     * @param string $homeUrl A URL para a página inicial (botão de retorno).
-     */
-    private function displayErrorPage($message, $homeUrl) {
-        // Define as variáveis que a view 'error.php' espera
-        $errorMessage = $message;
-        $homeUrl = $homeUrl;
-        require_once __DIR__ . '/../views/auth/error.php';
-        exit();
+        requireAuth('aluno');
+        // Exemplo simples de conteúdo. Em um projeto real, você carregaria uma view PHP aqui.
+        echo "<h1>Dashboard de Atividades Algebrando do Aluno</h1>";
+        echo "<p>Bem-vindo, " . htmlspecialchars($_SESSION['nome_usuario']) . "!</p>";
+        echo '<p>Aqui você verá suas atividades Algebrando.</p>';
+        echo '<a href="index.php?controller=dashboard&action=showAlunoSelection">Voltar para a seleção de atividades</a>';
+        // Ex: require_once __DIR__ . '/../views/aluno/dashboard_algebrando.php';
     }
 }
+?>

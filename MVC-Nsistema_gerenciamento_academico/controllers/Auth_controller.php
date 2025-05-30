@@ -1,10 +1,12 @@
 <?php
+// controllers/Auth_controller.php
+
+// Ativa a exibição de erros (para depuração, pode ser removido em produção)
 error_reporting(E_ALL);
 ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 
-// controllers/Auth_controller.php
-
+// Inclui o modelo de autenticação, que interage com o banco de dados
 require_once __DIR__ . '/../models/Auth_model.php';
 
 class Auth_controller {
@@ -15,15 +17,14 @@ class Auth_controller {
     }
 
     /**
-     * Exibe o formulário de login (página inicial).
+     * Exibe o formulário de login (página inicial do sistema).
      */
     public function showLoginForm() {
-        // Agora carrega a view de login
         require_once __DIR__ . '/../views/auth/Login.php';
     }
 
     /**
-     * Processa a requisição de login.
+     * Processa a requisição de login (geralmente via POST).
      */
     public function login() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -32,79 +33,82 @@ class Auth_controller {
 
             if (empty($login) || empty($senhaDigitada)) {
                 // Usa a função global displayErrorPage do index.php
-                displayErrorPage("Por favor, preencha todos os campos de login e senha.", '/');
+                displayErrorPage("Por favor, preencha todos os campos de login e senha.", 'index.php?controller=auth&action=showLoginForm');
             }
 
             $user = $this->authModel->authenticate($login, $senhaDigitada);
 
             if ($user) {
-                if (session_status() == PHP_SESSION_NONE) {
-                    session_start();
-                }
+                // A sessão já deve ter sido iniciada no index.php
                 $_SESSION['logado'] = true;
                 $_SESSION['tipo_usuario'] = $user['type'];
                 $_SESSION['id_usuario'] = $user['data']['id_' . $user['type']];
                 $_SESSION['nome_usuario'] = $user['data']['nome'];
                 $_SESSION['email_usuario'] = $user['data']['email'];
 
+                // Redireciona para o dashboard correto com base no tipo de usuário
                 if ($user['type'] === 'aluno') {
                     $_SESSION['nome_turma'] = $user['data']['nomeTurma'] ?? 'N/A';
-                    redirect('/aluno-selecao-atividade'); // Redireciona via rota MVC
+                    redirect('index.php?controller=dashboard&action=showAlunoSelection');
                 } else { // Professor
-                    redirect('/professor-dashboard'); // Redireciona via rota MVC
+                    redirect('index.php?controller=dashboard&action=showProfessorDashboard');
                 }
             } else {
-                displayErrorPage("Login ou senha inválidos. Por favor, tente novamente.", '/');
+                displayErrorPage("Login ou senha inválidos. Por favor, tente novamente.", 'index.php?controller=auth&action=showLoginForm');
             }
         } else {
-            redirect('/'); // Redireciona para a home (showLoginForm)
+            // Se a requisição não for POST (tentativa de acessar diretamente), redireciona para o formulário de login
+            redirect('index.php?controller=auth&action=showLoginForm');
         }
     }
 
     /**
-     * Realiza o logout do usuário.
+     * Realiza o logout do usuário, limpando a sessão.
      */
     public function logout() {
         if (session_status() == PHP_SESSION_NONE) {
             session_start();
         }
-        session_unset();
-        session_destroy();
-        displayErrorPage("Você foi desconectado com sucesso!", '/');
+        session_unset();   // Remove todas as variáveis de sessão
+        session_destroy(); // Destrói a sessão
+        displayErrorPage("Você foi desconectado com sucesso!", 'index.php?controller=auth&action=showLoginForm');
     }
 
     /**
      * Exibe o formulário de cadastro de professor.
      */
     public function showProfessorRegisterForm() {
-        $isUpdating = false;
-        $professorData = [];
-        $errors = "";
+        $isUpdating = false; // Usado na view para diferenciar cadastro de edição
+        $professorData = []; // Inicializa para evitar erros se a view esperar dados
+        $errors = "";        // Inicializa para evitar erros se a view esperar erros
         require_once __DIR__ . '/../views/auth/register_professor.php';
     }
 
     /**
-     * Processa a requisição de cadastro de professor.
+     * Processa a requisição de cadastro de professor (geralmente via POST).
      */
     public function registerProfessor() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            // Supondo que Auth_model tenha um método validateProfessorData
             $errors = $this->authModel->validateProfessorData($_POST);
 
             if (!empty($errors)) {
                 $isUpdating = false;
-                $professorData = $_POST;
+                $professorData = $_POST; // Preserva os dados digitados para reexibir
                 require_once __DIR__ . '/../views/auth/register_professor.php';
-                return;
+                return; // Para a execução para mostrar o formulário com erros
             }
 
             if ($this->authModel->registerProfessor($_POST)) {
                 echo "<p>Professor cadastrado com sucesso!</p>";
-                echo '<button onclick="window.location.href=\'/\'">Voltar para o Menu</button>';
+                echo '<button onclick="window.location.href=\'index.php?controller=auth&action=showLoginForm\'">Voltar para o Login</button>';
+                exit(); // Para a execução para mostrar a mensagem de sucesso
             } else {
-                displayErrorPage("Erro ao cadastrar professor. Por favor, tente novamente.", '/');
+                displayErrorPage("Erro ao cadastrar professor. Por favor, tente novamente.", 'index.php?controller=auth&action=showLoginForm');
             }
         } else {
-            redirect('/cadastro-professor');
+            // Se a requisição não for POST, redireciona para o formulário de cadastro
+            redirect('index.php?controller=auth&action=showProfessorRegisterForm');
         }
     }
 
@@ -112,33 +116,16 @@ class Auth_controller {
      * Exibe o formulário de cadastro de aluno.
      */
     public function showAlunoRegisterForm() {
+        // Você pode precisar inicializar variáveis para a view, como $errors, $alunoData, etc.
         require_once __DIR__ . '/../views/auth/register_aluno.php';
     }
 
     /**
-     * Processa a requisição de cadastro de aluno.
+     * Processa a requisição de cadastro de aluno (a ser implementado no Auth_model).
      */
     public function registerAluno() {
-        // Lógica de cadastro de aluno aqui, similar ao registerProfessor, usando um AlunoModel
-        // Você precisará criar um AlunoModel e implementar a lógica de validação e registro
-        displayErrorPage("Funcionalidade de cadastro de aluno ainda não implementada.", '/');
-    }
-
-    /**
-     * Método auxiliar para exibir uma página de erro genérica.
-     * Importante: Estas funções displayErrorPage e redirect são globais no index.php.
-     * Para usá-las dentro de um método de classe, você pode:
-     * 1. Passá-las como argumentos para o construtor do Controller (injeção de dependência).
-     * 2. Definir as funções como métodos estáticos ou em um helper e chamá-las com `self::` ou `Helper::`.
-     * 3. Chamá-las diretamente (como feito aqui, mas cuidado com o escopo global).
-     * Para este exemplo, vou mantê-las globais conforme seu `index.php` anterior,
-     * mas é uma boa prática considerá-las como helpers ou injetá-las.
-     */
-    private function displayErrorPage($message, $homeUrl) {
-        global $errorMessage, $homeUrl; // Declara como global para serem acessíveis pela view
-        $errorMessage = $message;
-        $homeUrl = $homeUrl;
-        require_once __DIR__ . '/../views/auth/error.php';
-        exit();
+        // Este método deve ser implementado no Auth_model, similar ao registerProfessor
+        displayErrorPage("Funcionalidade de cadastro de aluno ainda não implementada.", 'index.php?controller=auth&action=showLoginForm');
     }
 }
+?>
