@@ -17,6 +17,9 @@ require_once __DIR__ . '/config/conexao.php';
 require_once __DIR__ . '/controllers/Auth_controller.php';
 require_once __DIR__ . '/controllers/Dashboard_controller.php';
 require_once __DIR__ . '/controllers/Professor_controller.php';
+require_once __DIR__ . '/controllers/Aluno_controller.php';
+//Nao funciona o Conteudo_controller.php: teste mais
+//require_once __DIR__ . '/controllers/Conteudo_controller.php';
 // Adicione aqui outros controladores conforme o projeto cresce (ex: Atividades_controller.php)
 
 // --- Funções Auxiliares Globais ---

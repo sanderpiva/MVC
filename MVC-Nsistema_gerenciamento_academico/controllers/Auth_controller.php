@@ -49,7 +49,7 @@ class Auth_controller {
                 // Redireciona para o dashboard correto com base no tipo de usuário
                 if ($user['type'] === 'aluno') {
                     $_SESSION['nome_turma'] = $user['data']['nomeTurma'] ?? 'N/A';
-                    redirect('index.php?controller=dashboard&action=showAlunoSelection');
+                    redirect('index.php?controller=dashboard&action=showAlunoDashboard');
                 } else { // Professor
                     
                     redirect('index.php?controller=dashboard&action=showProfessorDashboard');

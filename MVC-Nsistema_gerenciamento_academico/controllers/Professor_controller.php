@@ -25,7 +25,6 @@ class Professor_controller
      */
     public function showServicesPage()
     {
-        echo "<h1>Página de Serviços do Professor</h1>";
         // Caminho da view para os serviços do professor
         require_once __DIR__ . '/../views/professor/Dashboard_servicos.php';
     }
