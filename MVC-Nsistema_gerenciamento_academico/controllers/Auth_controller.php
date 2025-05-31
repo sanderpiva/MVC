@@ -51,6 +51,7 @@ class Auth_controller {
                     $_SESSION['nome_turma'] = $user['data']['nomeTurma'] ?? 'N/A';
                     redirect('index.php?controller=dashboard&action=showAlunoSelection');
                 } else { // Professor
+                    
                     redirect('index.php?controller=dashboard&action=showProfessorDashboard');
                 }
             } else {
@@ -95,6 +96,7 @@ class Auth_controller {
             if (!empty($errors)) {
                 $isUpdating = false;
                 $professorData = $_POST; // Preserva os dados digitados para reexibir
+                
                 require_once __DIR__ . '/../views/auth/register_professor.php';
                 return; // Para a execução para mostrar o formulário com erros
             }

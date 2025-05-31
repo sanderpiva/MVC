@@ -23,9 +23,12 @@ class Dashboard_controller {
     public function showProfessorDashboard() {
         // Garante que apenas professores logados acessem este dashboard
         // Usa a função global requireAuth() com o tipo de usuário esperado
+        echo "<p>Autenticando professor:</p>";
+                
+        
         requireAuth('professor');
         // Carrega a view do dashboard do professor
-        require_once __DIR__ . '/../views/professor/dashboard.php';
+        require_once __DIR__ . '/../views/professor/Dashboard_login.php';
     }
 
     /**

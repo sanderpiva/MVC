@@ -16,6 +16,7 @@ require_once __DIR__ . '/config/conexao.php';
 // Inclui os arquivos dos controladores. Em aplicações maiores, um autoloader seria usado.
 require_once __DIR__ . '/controllers/Auth_controller.php';
 require_once __DIR__ . '/controllers/Dashboard_controller.php';
+require_once __DIR__ . '/controllers/Professor_controller.php';
 // Adicione aqui outros controladores conforme o projeto cresce (ex: Atividades_controller.php)
 
 // --- Funções Auxiliares Globais ---
