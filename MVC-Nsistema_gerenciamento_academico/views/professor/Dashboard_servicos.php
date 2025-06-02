@@ -76,7 +76,7 @@
             <section class="section">
                 <h2>CADASTROS</h2>
                 <div class="button-grid">
-                    <button onclick="window.location.href='/turma?action=create'">Cadastrar Turma</button>
+                    <button onclick="window.location.href='index.php?controller=turma&action=showCreateForm'">Cadastrar Turma</button>
                     <button onclick="window.location.href='/disciplina?action=create'">Cadastrar Disciplina</button>
                     <button onclick="window.location.href='/matricula?action=create'">Cadastrar Matricula</button>
                     <button onclick="window.location.href='/conteudo?action=create'">Cadastrar Conteudo</button>
@@ -89,7 +89,7 @@
             <section class="section">
                 <h2>CONSULTAS</h2>
                 <div class="button-grid">
-                    <button onclick="window.location.href='/turma?action=list'">Consultar Turma</button>
+                    <button onclick="window.location.href='index.php?controller=turma&action=list'">Consultar Turma</button>
                     <button onclick="window.location.href='/disciplina?action=list'">Consultar Disciplina</button>
                     <button onclick="window.location.href='/matricula?action=list'">Consultar Matricula</button>
                     <button onclick="window.location.href='/conteudo?action=list'">Consultar Conteudo</button>
@@ -102,7 +102,7 @@
             </section>
         </div>
         <div class="home-link">
-            <a href="/index.php?logout=true">Logout -> HomePage</a>
+            <a href="?logout=true">Logout -> HomePage</a>
         </div>
     </div><hr><hr>
 

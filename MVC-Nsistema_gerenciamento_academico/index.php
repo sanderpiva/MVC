@@ -11,6 +11,7 @@ if (session_status() == PHP_SESSION_NONE) {
 
 // --- Inclusão de Arquivos Essenciais ---
 // Inclui o arquivo de conexão com o banco de dados
+// A variável $conexao DEVE ser definida neste arquivo (ex: $conexao = new PDO(...);)
 require_once __DIR__ . '/config/conexao.php';
 
 // Inclui os arquivos dos controladores. Em aplicações maiores, um autoloader seria usado.
@@ -18,9 +19,8 @@ require_once __DIR__ . '/controllers/Auth_controller.php';
 require_once __DIR__ . '/controllers/Dashboard_controller.php';
 require_once __DIR__ . '/controllers/Professor_controller.php';
 require_once __DIR__ . '/controllers/Aluno_controller.php';
-//Nao funciona o Conteudo_controller.php: teste mais
-//require_once __DIR__ . '/controllers/Conteudo_controller.php';
-// Adicione aqui outros controladores conforme o projeto cresce (ex: Atividades_controller.php)
+require_once __DIR__ . '/controllers/Turma_controller.php';
+// require_once __DIR__ . '/controllers/Conteudo_controller.php'; // Remova o comentário se for usar
 
 // --- Funções Auxiliares Globais ---
 // São funções que podem ser usadas em qualquer lugar do seu código (controladores, modelos, etc.)
@@ -75,25 +75,101 @@ $actionParam = $_GET['action'] ?? 'showLoginForm';
 $controllerClassName = ucfirst($controllerParam) . '_controller';
 
 // Verifica se o arquivo do controlador existe e se a classe foi definida
-// (O require_once já foi feito no início, então class_exists é suficiente aqui)
 if (!class_exists($controllerClassName)) {
     displayErrorPage("Controller '$controllerClassName' não encontrado no sistema.", 'index.php?controller=auth&action=showLoginForm');
 }
 
 // Instancia o controlador
-$controller = new $controllerClassName();
+$controller = null; // Inicializa a variável do controlador
+
+// Verifica qual controlador está sendo instanciado e passa a conexão se necessário.
+// Esta é a parte CRÍTICA para resolver o erro 'Too few arguments'.
+// Você precisa listar AQUI todos os controladores que esperam $conexao em seus construtores.
+if (
+    $controllerClassName === 'Turma_controller' ||
+    $controllerClassName === 'Professor_controller' || // Adicione se Professor_controller precisa de $conexao
+    $controllerClassName === 'Aluno_controller' ||     // Adicione se Aluno_controller precisa de $conexao
+    $controllerClassName === 'Conteudo_controller'     // Adicione se Conteudo_controller precisa de $conexao
+    // Adicione outros controladores aqui conforme a necessidade de $conexao
+) {
+    // A variável $conexao deve ter sido definida no arquivo 'config/conexao.php'.
+    // Certifique-se de que ela está acessível neste escopo.
+    // Ex: $conexao = new PDO("mysql:host=...", "user", "pass");
+    $controller = new $controllerClassName($conexao); // Passa a conexão aqui!
+} else {
+    // Para controladores que não precisam da conexão no construtor (como Auth_controller, Dashboard_controller)
+    $controller = new $controllerClassName();
+}
 
 // Determina o método a ser chamado no controlador
+// O método que será chamado no controlador (ex: 'listTurmas', 'showCreateForm', 'handleCreatePost')
 $methodToCall = $actionParam;
 
-// Verifica se o método existe no controlador instanciado
+// Verifica se o método existe no controlador instanciado e chama-o
 if (method_exists($controller, $methodToCall)) {
-    // Chama o método no controlador.
-    // Quaisquer dados POST ou GET estarão disponíveis para o método via $_POST ou $_GET.
-    $controller->$methodToCall();
+    // Lógica para chamar o método, passando parâmetros se necessário (como 'id' para edit/delete)
+    switch ($methodToCall) {
+        case 'showEditForm': // Ação para exibir formulário de edição (GET)
+        case 'deleteTurma':  // Ação para excluir (GET)
+            $controller->$methodToCall($_GET['id'] ?? null); // Passa o ID se for edição ou exclusão
+            break;
+
+        case 'create': // Ação 'create' via GET para exibir o formulário de criação
+            // Para casos onde 'action=create' (GET) mostra o formulário, e 'action=create' (POST) processa
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                // Se a requisição é POST, chama o método para processar a criação
+                // Assumimos que o método POST de criação é 'handleCreatePost'
+                if (method_exists($controller, 'handleCreatePost')) {
+                    $controller->handleCreatePost($_POST);
+                } else {
+                    displayErrorPage("Ação POST para 'create' não implementada no controller '$controllerClassName'.", 'index.php?controller=' . $controllerParam . '&action=list');
+                }
+            } else {
+                // Se a requisição é GET, chama o método para exibir o formulário de criação
+                $controller->showCreateForm(); // Assumimos que o método GET de criação é 'showCreateForm'
+            }
+            break;
+
+        case 'update': // Ação 'update' via POST para processar atualização
+            // A ação 'update' geralmente é apenas para submissões POST
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                // Se a requisição é POST, chama o método para processar a atualização
+                // Assumimos que o método POST de atualização é 'handleUpdatePost'
+                if (method_exists($controller, 'handleUpdatePost')) {
+                    $controller->handleUpdatePost($_POST);
+                } else {
+                    displayErrorPage("Ação POST para 'update' não implementada no controller '$controllerClassName'.", 'index.php?controller=' . $controllerParam . '&action=list');
+                }
+            } else {
+                // Se a requisição não for POST, redireciona ou exibe erro, pois 'update' é para POST
+                displayErrorPage("Ação 'update' só pode ser acessada via POST.", 'index.php?controller=' . $controllerParam . '&action=list');
+            }
+            break;
+            
+        case 'login': // Ação 'login' no Auth_controller
+        case 'registerProfessor': // Ação 'registerProfessor' no Auth_controller
+        case 'registerAluno': // Ação 'registerAluno' no Auth_controller
+            // Para estas ações, é importante verificar o método da requisição (GET/POST)
+            // e chamar o método correto no controlador.
+            // O Auth_controller já tem essa lógica interna em seus métodos login/registerProfessor.
+            // Então, podemos simplesmente chamar o método, e ele lidará com $_SERVER['REQUEST_METHOD'].
+            $controller->$methodToCall();
+            break;
+
+        default:
+            // Para todas as outras ações que não exigem parâmetros especiais
+            // (ex: 'listTurmas', 'showLoginForm', 'logout', 'showProfessorRegisterForm', 'showAlunoRegisterForm', etc.)
+            $controller->$methodToCall();
+            break;
+    }
 } else {
-    // Se o método não existir, exibe uma página de erro
-    displayErrorPage("Ação '$actionParam' não encontrada no controller '$controllerClassName'.", 'index.php?controller=auth&action=showLoginForm');
+    // Se o método da ação não existir no controlador
+    // Tenta chamar um método 'defaultAction' se existir, caso contrário exibe erro genérico
+    if (method_exists($controller, 'defaultAction')) {
+        $controller->defaultAction();
+    } else {
+        displayErrorPage("Ação '$actionParam' não encontrada no controller '$controllerClassName'.", 'index.php?controller=auth&action=showLoginForm');
+    }
 }
 
 ?>
